@@ -1,11 +1,9 @@
 import os
-from flask import Flask, request
 import telebot
 
-# 1. Initialize Bot and Flask Web Server
+# 1. Initialize Bot using the Token from Render's environment
 TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
-app = Flask(__name__)
 
 # 2. Start Command (/start) in Khmer
 @bot.message_handler(commands=['start', 'help'])
@@ -28,8 +26,7 @@ def count_text(message):
     total_chars = len(text)
     chars_no_spaces = len(text.replace(" ", "").replace("\n", ""))
     
-    # Simple split for words (Note: Khmer text without spaces requires advanced NLP segmentation, 
-    # but this handles standard spaces/mix text gracefully)
+    # Simple split for words
     words = len(text.split()) if text.strip() else 0
     paragraphs = len([p for p in text.split('\n') if p.strip()])
     
@@ -42,23 +39,8 @@ def count_text(message):
     )
     bot.reply_to(message, reply_text, parse_mode='Markdown')
 
-# 4. Webhook setup so Render can route Telegram messages to our code
-@app.route('/' + TOKEN, methods=['POST'])
-def getMessage():
-    json_string = request.get_data().decode('utf-8')
-    update = telebot.types.Update.de_json(json_string)
-    bot.process_new_updates([update])
-    return "!", 200
-
-@app.route("/")
-def webhook():
-    bot.remove_webhook()
-    # Replace URL later with your actual Render URL
-    RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL')
-    if RENDER_URL:
-        bot.set_webhook(url=RENDER_URL + '/' + TOKEN)
-        return "Webhook Set Successfully!", 200
-    return "Bot is running, but RENDER_EXTERNAL_URL environment variable is missing.", 400
-
+# 4. Start Long Polling (Infinite loop checking for messages)
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    print("Bot is starting up...")
+    # This keeps the bot running infinitely on your background worker
+    bot.infinity_polling()
